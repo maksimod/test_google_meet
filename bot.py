@@ -133,7 +133,7 @@ def start(update: Update, context: CallbackContext) -> None:
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
     
     update.message.reply_text(
-        f'Привет, {user.first_name}! Я бот для создания и отправки ссылок на Google Meet и напоминаний.\n\n'
+        f'Привет, {user.first_name}! Я бот для создания и отправки ссылок на Microsoft Teams и напоминаний.\n\n'
         'Используйте команды ниже для управления.',
         reply_markup=reply_markup
     )
@@ -443,14 +443,14 @@ def send_meet_link(context: CallbackContext) -> None:
         # Use static Google Meet link with increased timeout and retry
         for attempt in range(3):  # Try up to 3 times
             try:
-                meet_link = "https://meet.google.com/pep-zuux-ubg"
+                meet_link = "https://teams.microsoft.com/l/meetup-join/19%3Ameeting_ZjZhZjA5YzktZTg1NS00YjU5LTg0Y2MtNWE2ZTkyZDJkMWU4%40thread.v2/0?context=%7B%22Tid%22%3A%22c5df9671-e735-4318-9942-1bde198b3dd6%22%2C%22Oid%22%3A%22d2fbcd3c-fff2-48a6-8b55-99b4237b61c8%22%7D"
                 
                 day_text = DAYS_DISPLAY[day]
                 
                 # Параметры сообщения
                 send_params = {
                     'chat_id': chat_id,
-                    'text': f'Ваша еженедельная Google Meet встреча ({day_text} {hours:02d}:{minutes:02d}):\n{meet_link}',
+                    'text': f'Ваша еженедельная Microsoft Teams встреча ({day_text} {hours:02d}:{minutes:02d}):\n{meet_link}',
                     'disable_notification': False,  # Ensure notification is sent
                 }
                 
@@ -490,7 +490,7 @@ def send_meet_link(context: CallbackContext) -> None:
             # Параметры сообщения об ошибке
             send_params = {
                 'chat_id': chat_id,
-                'text': 'Произошла ошибка при отправке ссылки на Google Meet.'
+                'text': 'Произошла ошибка при отправке ссылки на Microsoft Teams.'
             }
             
             # Добавляем параметр message_thread_id, если thread_id указан
@@ -584,7 +584,7 @@ def help_command(update: Update, context: CallbackContext) -> None:
     if is_group:
         update.message.reply_text(
             'Команды бота в группах:\n\n'
-            '📅 Google Meet:\n'
+            '📅 Microsoft Teams:\n'
             '/meet - получить мгновенную ссылку на встречу\n'
             '/addtime день ЧЧ:ММ - добавить еженедельную отправку\n'
             '/list - просмотреть все отправки\n'
@@ -605,7 +605,7 @@ def help_command(update: Update, context: CallbackContext) -> None:
     else:
         update.message.reply_text(
             'Команды бота:\n\n'
-            '📅 Google Meet:\n'
+            '📅 Microsoft Teams:\n'
             '/meet - получить мгновенную ссылку на встречу\n'
             '/add - добавить еженедельную отправку\n'
             '/list - просмотреть все отправки\n'
@@ -844,11 +844,11 @@ def send_instant_meet_link(update: Update, context: CallbackContext) -> None:
         # Use static Google Meet link with retry mechanism
         for attempt in range(3):  # Try up to 3 times
             try:
-                meet_link = "https://meet.google.com/pep-zuux-ubg"
+                meet_link = "https://teams.microsoft.com/l/meetup-join/19%3Ameeting_ZjZhZjA5YzktZTg1NS00YjU5LTg0Y2MtNWE2ZTkyZDJkMWU4%40thread.v2/0?context=%7B%22Tid%22%3A%22c5df9671-e735-4318-9942-1bde198b3dd6%22%2C%22Oid%22%3A%22d2fbcd3c-fff2-48a6-8b55-99b4237b61c8%22%7D"
                 
                 # Параметры сообщения
                 send_params = {
-                    'text': f'Ваша мгновенная Google Meet ссылка:\n{meet_link}',
+                    'text': f'Ваша мгновенная Microsoft Teams ссылка:\n{meet_link}',
                     'disable_notification': False,  # Ensure notification is sent
                 }
                 
@@ -880,7 +880,7 @@ def send_instant_meet_link(update: Update, context: CallbackContext) -> None:
                 
     except Exception as e:
         logger.error(f"Error sending instant meet link after retries: {e}")
-        update.message.reply_text('Произошла ошибка при отправке ссылки на Google Meet.')
+        update.message.reply_text('Произошла ошибка при отправке ссылки на Microsoft Teams.')
 
 def add_schedule_direct(update: Update, context: CallbackContext) -> None:
     """Directly add a schedule without conversation (for groups)."""
@@ -1492,6 +1492,66 @@ def delete_reminder_command(update: Update, context: CallbackContext) -> int:
             update.message.reply_text('Произошла ошибка при проверке прав администратора.')
             return ConversationHandler.END
     
+    # Проверяем, есть ли аргументы команды (для прямого удаления)
+    text = update.message.text.strip()
+    parts = text.split(' ', 1)
+    
+    if len(parts) > 1:
+        # Пытаемся удалить напоминание по дате и времени
+        args_text = parts[1].strip()
+        
+        # Удаляем имя бота, если команда вызвана с @botname
+        if '@' in args_text:
+            args_text = args_text.split('@')[0].strip()
+        
+        # Парсим дату и время
+        import re
+        datetime_match = re.match(r'(\d{1,2}\.\d{1,2}\.\d{4})\s+(\d{1,2}:\d{2})', args_text)
+        
+        if datetime_match:
+            date_str = datetime_match.group(1)
+            time_str = datetime_match.group(2)
+            
+            try:
+                # Парсим дату и время
+                datetime_str = f"{date_str} {time_str}"
+                target_datetime = datetime.datetime.strptime(datetime_str, "%d.%m.%Y %H:%M")
+                target_datetime = MOSCOW_TZ.localize(target_datetime)
+                
+                # Ищем и удаляем напоминание
+                with reminders_lock:
+                    load_reminders()
+                    
+                    if chat_id in reminders:
+                        deleted = False
+                        new_reminders = []
+                        
+                        for reminder in reminders[chat_id]:
+                            reminder_dt = datetime.datetime.fromisoformat(reminder['datetime'])
+                            # Сравниваем только дату и время (без секунд)
+                            if (reminder_dt.year == target_datetime.year and
+                                reminder_dt.month == target_datetime.month and
+                                reminder_dt.day == target_datetime.day and
+                                reminder_dt.hour == target_datetime.hour and
+                                reminder_dt.minute == target_datetime.minute):
+                                deleted = True
+                                logger.info(f"Deleting reminder: {datetime_str} for chat {chat_id}")
+                            else:
+                                new_reminders.append(reminder)
+                        
+                        if deleted:
+                            reminders[chat_id] = new_reminders
+                            save_reminders()
+                            update.message.reply_text(f'Напоминание на {datetime_str} успешно удалено.')
+                        else:
+                            update.message.reply_text(f'Напоминание на {datetime_str} не найдено.')
+                        
+                        return ConversationHandler.END
+                        
+            except ValueError:
+                # Если не удалось распарсить дату/время, продолжаем с интерактивным режимом
+                pass
+    
     with reminders_lock:
         load_reminders()
         
@@ -1564,15 +1624,36 @@ def process_reminder_delete(update: Update, context: CallbackContext) -> int:
         with reminders_lock:
             load_reminders()
             
-            if chat_id in reminders and 0 < reminder_num <= len(reminders[chat_id]):
-                # Удаляем напоминание
-                deleted_reminder = reminders[chat_id].pop(reminder_num - 1)
-                save_reminders()
+            if chat_id in reminders:
+                thread_id = temp_reminders[state_key].get('thread_id')
                 
-                # Отменяем задание в планировщике
-                # TODO: Реализовать отмену задания в job_queue
+                # Фильтруем напоминания по thread_id, если нужно
+                filtered_reminders = []
+                indices_map = []  # Маппинг отображаемого индекса на реальный
                 
-                update.message.reply_text('Напоминание успешно удалено.')
+                for real_idx, reminder in enumerate(reminders[chat_id]):
+                    if thread_id is None or reminder.get('thread_id') == thread_id:
+                        filtered_reminders.append(reminder)
+                        indices_map.append(real_idx)
+                
+                # Проверяем, что номер в допустимых пределах
+                if 0 < reminder_num <= len(filtered_reminders):
+                    # Получаем реальный индекс напоминания для удаления
+                    real_index = indices_map[reminder_num - 1]
+                    
+                    # Удаляем напоминание по реальному индексу
+                    deleted_reminder = reminders[chat_id].pop(real_index)
+                    save_reminders()
+                    
+                    # Отменяем задание в планировщике
+                    # TODO: Реализовать отмену задания в job_queue
+                    
+                    dt = datetime.datetime.fromisoformat(deleted_reminder['datetime'])
+                    update.message.reply_text(
+                        f'Напоминание на {dt.strftime("%d.%m.%Y %H:%M")} успешно удалено.'
+                    )
+                else:
+                    update.message.reply_text('Ошибка при удалении напоминания.')
             else:
                 update.message.reply_text('Ошибка при удалении напоминания.')
         
