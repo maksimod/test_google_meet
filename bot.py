@@ -987,7 +987,9 @@ def delete_schedule_direct(update: Update, context: CallbackContext) -> None:
     user_id = update.effective_user.id
     
     # Получаем thread_id (ID темы), если сообщение из темы в супергруппе
-    thread_id = update.message.message_thread_id if hasattr(update.message, 'message_thread_id') else None
+    thread_id = None
+    if update.message and hasattr(update.message, 'message_thread_id'):
+        thread_id = update.message.message_thread_id
     
     # Проверяем, является ли отправитель администратором группы, если это групповой чат
     if update.effective_chat.type in ['group', 'supergroup']:
@@ -1006,7 +1008,17 @@ def delete_schedule_direct(update: Update, context: CallbackContext) -> None:
     
     # Удаляем имя бота, если команда вызвана с @botname
     if '@' in text:
-        text = text.split('@', 1)[0].strip()
+        # Находим первый пробел после @botname и сохраняем аргументы
+        at_pos = text.find('@')
+        space_after_at = text.find(' ', at_pos)
+        if space_after_at != -1:
+            # Есть пробел после @botname - берем команду до @ и аргументы после пробела
+            command_part = text[:at_pos]
+            args_part = text[space_after_at + 1:]
+            text = command_part + ' ' + args_part
+        else:
+            # Нет пробела после @botname - только команда без аргументов
+            text = text.split('@', 1)[0].strip()
     
     # Удаляем команду из текста
     parts = text.split(' ', 1)
@@ -1066,11 +1078,17 @@ def delete_schedule_direct(update: Update, context: CallbackContext) -> None:
             if chat_id in scheduled_meets:
                 new_schedules = []
                 for schedule_item in scheduled_meets[chat_id]:
+                    # Проверяем, что schedule_item не None
+                    if schedule_item is None:
+                        logger.warning(f"Found None schedule_item in chat {chat_id}, skipping")
+                        continue
+                        
                     if (schedule_item['day'] == day_of_week and 
                         schedule_item['hours'] == hours and 
                         schedule_item['minutes'] == minutes and
                         schedule_item.get('thread_id') == thread_id):
                         deleted = True
+                        logger.info(f"Deleting schedule: {day_text} {hours:02d}:{minutes:02d} for chat {chat_id}")
                     else:
                         new_schedules.append(schedule_item)
                 
